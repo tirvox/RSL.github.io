@@ -226,6 +226,7 @@ let users = [];
 let currentUser = null;
 let currentCategory = 'Инжекторы';
 let editingIndex = -1;
+let deletedKeys = [];
 
 const statusMap = {
   green: 'Undetected — Работает',
@@ -233,40 +234,67 @@ const statusMap = {
   red: 'Detected — Риск'
 };
 
-function safeInit() {
+async function loadData() {
+  let baseItems = [];
+  try {
+    const res = await fetch('base.json?t=' + Date.now());
+    if (res.ok) {
+      baseItems = await res.json();
+      if (!Array.isArray(baseItems)) baseItems = [];
+    }
+  } catch (e) {
+    console.log('base.json не загружен, используем localStorage и DEFAULT_ITEMS');
+  }
+
+  let localItems = [];
+  let deletedKeys = [];
   try {
     const stored = localStorage.getItem('shopItems');
     if (stored) {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        items = parsed;
-      }
+      if (Array.isArray(parsed)) localItems = parsed;
     }
-  } catch (e) {
-    items = [];
-  }
-  if (!items.length) {
-    console.log('DEFAULT_ITEMS loaded');
-    items = DEFAULT_ITEMS.slice();
-  }
+    const storedDel = localStorage.getItem('deletedKeys');
+    if (storedDel) {
+      const parsedDel = JSON.parse(storedDel);
+      if (Array.isArray(parsedDel)) deletedKeys = parsedDel;
+    }
+  } catch (e) {}
 
+  const baseKey = (i) => (i.name || '').toLowerCase() + '|' + (i.category || '');
+  const baseKeys = new Set(baseItems.map(baseKey));
+  const extraLocal = localItems.filter(i => !baseKeys.has(baseKey(i)));
+
+  items = [...baseItems.filter(i => !deletedKeys.includes(baseKey(i))), ...extraLocal];
+  if (!items.length) items = DEFAULT_ITEMS.slice();
+}
+
+function loadUsers() {
   try {
     const storedU = localStorage.getItem('rslUsers');
     if (storedU) {
       const parsedU = JSON.parse(storedU);
-      if (Array.isArray(parsedU)) {
-        users = parsedU;
-      }
+      if (Array.isArray(parsedU)) users = parsedU;
     }
   } catch (e) {
     users = [];
   }
+  try {
+    const storedDel = localStorage.getItem('deletedKeys');
+    if (storedDel) {
+      const parsedDel = JSON.parse(storedDel);
+      if (Array.isArray(parsedDel)) deletedKeys = parsedDel;
+    }
+  } catch (e) {
+    deletedKeys = [];
+  }
   currentUser = localStorage.getItem('currentUser');
 }
 
-window.onload = () => {
+window.onload = async () => {
   try {
-    safeInit();
+    await loadData();
+    loadUsers();
     checkUser();
     setCategory('Инжекторы');
   } catch (e) {
@@ -453,6 +481,11 @@ function saveItem(){
 
 function deleteItem(index){
   if(confirm('Удалить товар?')){
+    const key = (items[index].name || '').toLowerCase() + '|' + (items[index].category || '');
+    if (!deletedKeys.includes(key)) {
+      deletedKeys.push(key);
+      localStorage.setItem('deletedKeys', JSON.stringify(deletedKeys));
+    }
     items.splice(index,1);
     localStorage.setItem('shopItems',JSON.stringify(items));
     renderItems();
