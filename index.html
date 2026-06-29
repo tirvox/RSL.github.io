@@ -497,7 +497,8 @@ function openGithubModal() {
 async function githubPushBase() {
   if (!useGithub || !githubToken || !githubRepo) return;
   try {
-    await githubUpdateBase(items);
+    const toSync = items.filter(i => !deletedKeys.includes((i.name || '').toLowerCase() + '|' + (i.category || '')));
+    await githubUpdateBase(toSync);
     lastSyncStatus = '✅ Синхронизировано';
   } catch (e) {
     console.error('GitHub sync error:', e);
