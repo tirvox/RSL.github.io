@@ -252,7 +252,7 @@ let deletedKeys = [];
 let useGithub = false;
 let githubToken = localStorage.getItem('rsl_github_token') || '';
 let githubRepo = localStorage.getItem('rsl_github_repo') || '';
-let githubSha = null;
+let githubSha = localStorage.getItem('rsl_github_sha');
 let lastSyncStatus = '';
 
 const statusMap = {
@@ -366,10 +366,14 @@ async function githubGetBase() {
   const res = await fetch(url, {
     headers: { 'Authorization': `token ${githubToken}`, 'Accept': 'application/vnd.github.v3+json' }
   });
-  if (!res.ok) throw new Error('GitHub get failed: ' + res.status);
+  if (!res.ok) {
+    if (res.status === 404) return [];
+    throw new Error('GitHub get failed: ' + res.status);
+  }
   const data = await res.json();
   if (data.content) {
     githubSha = data.sha;
+    localStorage.setItem('rsl_github_sha', githubSha);
     return JSON.parse(base64Decode(data.content.replace(/\n/g, '')));
   }
   return [];
@@ -398,10 +402,16 @@ async function githubUpdateBase(newItems) {
   });
   if (!res.ok) {
     const err = await res.json();
+    if (res.status === 409) {
+      githubSha = null;
+      localStorage.removeItem('rsl_github_sha');
+      throw new Error('Файл изменён другим пользователем. Обнови страницу.');
+    }
     throw new Error('GitHub update failed: ' + (err.message || res.status));
   }
   const data = await res.json();
   githubSha = data.content.sha;
+  localStorage.setItem('rsl_github_sha', githubSha);
   return true;
 }
 
@@ -468,6 +478,7 @@ function clearGithubSettings() {
   if (confirm('Отключить синхронизацию с GitHub? Изменения больше не будут сохраняться в репозиторий.')) {
     localStorage.removeItem('rsl_github_token');
     localStorage.removeItem('rsl_github_repo');
+    localStorage.removeItem('rsl_github_sha');
     githubToken = '';
     githubRepo = '';
     useGithub = false;
