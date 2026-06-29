@@ -16,5 +16,14 @@
     "install": "https://discord.gg/fhBzjgp78r",
     "discord": "https://discord.gg/fhBzjgp78r",
     "status": "green"
+  },
+  {
+    "category": "Инжекторы",
+    "name": "fds",
+    "img": "sdf",
+    "desc": "fsds",
+    "install": "sdf",
+    "discord": "fds",
+    "status": "green"
   }
 ]
