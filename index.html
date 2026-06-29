@@ -198,8 +198,39 @@ main{padding:40px;max-width:1400px;margin:0 auto;}
 </div>
 
 <script>
-let items = JSON.parse(localStorage.getItem('shopItems')) || [];
-let users = JSON.parse(localStorage.getItem('rslUsers')) || [];
+const DEFAULT_ITEMS = [
+  {
+    name: "RSL Injector",
+    category: "Инжекторы",
+    img: "https://via.placeholder.com/300x160/2a2a35/FFFFFF?text=RSL+Injector",
+    desc: "Быстрый и стабильный инжектор с автоматическим обновлением.",
+    install: "https://discord.gg/fhBzjgp78r",
+    discord: "https://discord.gg/fhBzjgp78r",
+    status: "green"
+  },
+  {
+    name: "Universal Script",
+    category: "Скрипты",
+    img: "https://via.placeholder.com/300x160/2a2a35/FFFFFF?text=Universal+Script",
+    desc: "Универсальный скрипт с GUI и множеством функций для автоматизации.",
+    install: "https://discord.gg/fhBzjgp78r",
+    discord: "https://discord.gg/fhBzjgp78r",
+    status: "green"
+  }
+];
+
+let items = [];
+try {
+  const stored = localStorage.getItem('shopItems');
+  if (stored) items = JSON.parse(stored);
+} catch (e) { items = []; }
+if (!items.length) items = DEFAULT_ITEMS;
+
+let users = [];
+try {
+  const storedU = localStorage.getItem('rslUsers');
+  if (storedU) users = JSON.parse(storedU);
+} catch (e) { users = []; }
 let currentUser = localStorage.getItem('currentUser');
 let currentCategory = 'Инжекторы';
 let editingIndex = -1;
