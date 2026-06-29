@@ -115,7 +115,9 @@ main{padding:40px;max-width:1400px;margin:0 auto;}
       <button class="admin-add-btn" id="adminBtn" onclick="openAddModal()">+ Добавить софт</button>
     </div>
   </div>
-  <div class="grid" id="itemsGrid"></div>
+  <div class="grid" id="itemsGrid">
+    <div class="empty-state">Загрузка каталога...</div>
+  </div>
 </main>
 
 <!-- Вход -->
@@ -220,18 +222,8 @@ const DEFAULT_ITEMS = [
 ];
 
 let items = [];
-try {
-  const stored = localStorage.getItem('shopItems');
-  if (stored) items = JSON.parse(stored);
-} catch (e) { items = []; }
-if (!items.length) items = DEFAULT_ITEMS;
-
 let users = [];
-try {
-  const storedU = localStorage.getItem('rslUsers');
-  if (storedU) users = JSON.parse(storedU);
-} catch (e) { users = []; }
-let currentUser = localStorage.getItem('currentUser');
+let currentUser = null;
 let currentCategory = 'Инжекторы';
 let editingIndex = -1;
 
@@ -241,7 +233,52 @@ const statusMap = {
   red: 'Detected — Риск'
 };
 
-window.onload = () => { checkUser(); setCategory('Инжекторы'); }
+function safeInit() {
+  try {
+    const stored = localStorage.getItem('shopItems');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        items = parsed;
+      }
+    }
+  } catch (e) {
+    items = [];
+  }
+  if (!items.length) {
+    console.log('DEFAULT_ITEMS loaded');
+    items = DEFAULT_ITEMS.slice();
+  }
+
+  try {
+    const storedU = localStorage.getItem('rslUsers');
+    if (storedU) {
+      const parsedU = JSON.parse(storedU);
+      if (Array.isArray(parsedU)) {
+        users = parsedU;
+      }
+    }
+  } catch (e) {
+    users = [];
+  }
+  currentUser = localStorage.getItem('currentUser');
+}
+
+window.onload = () => {
+  try {
+    safeInit();
+    checkUser();
+    setCategory('Инжекторы');
+  } catch (e) {
+    console.error('Ошибка инициализации:', e);
+    document.getElementById('itemsGrid').innerHTML = '<div class="empty-state">Ошибка загрузки. Обнови страницу (F5).</div>';
+  }
+};
+
+window.onerror = function(msg, url, lineNo, columnNo, error) {
+  console.error('JS Error:', msg, 'at', url + ':' + lineNo);
+  return false;
+};
 
 function setCategory(cat) {
   currentCategory = cat;
@@ -273,6 +310,7 @@ function checkUser() {
 function renderItems() {
   const grid = document.getElementById('itemsGrid');
   const search = document.getElementById('searchInput').value.toLowerCase();
+  console.log('Rendering items, total:', items.length, 'category:', currentCategory);
   grid.innerHTML = '';
   let filtered = items.filter(item=>{
     return item.name.toLowerCase().includes(search) &&
@@ -297,7 +335,7 @@ function renderItems() {
         ${adminHtml}
         <div class="status ${item.status}"></div>
         <img src="${item.img||'https://via.placeholder.com/300x160/2a2a35/FFFFFF?text=No+Image'}"
-             onerror="this.src='https://via.placeholder.com/300x160/2a2a35/FFFFFF?text=Error'" alt="">
+             onerror="this.onerror=null;this.src='https://via.placeholder.com/300x160/2a2a35/FFFFFF?text=Error'" alt="">
         <h3>${item.name}</h3>
         <div class="short-desc">${shortDesc}</div>
         <button class="view-btn" onclick="openDetail(${ri})">VIEW DETAILS</button>
