@@ -379,7 +379,7 @@ async function githubGetBase() {
   return [];
 }
 
-async function githubUpdateBase(newItems) {
+async function githubUpdateBase(newItems, retry = false) {
   const [owner, repo] = githubRepo.split('/');
   const content = base64Encode(JSON.stringify(newItems, null, 2));
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/base.json`;
@@ -402,10 +402,10 @@ async function githubUpdateBase(newItems) {
   });
   if (!res.ok) {
     const err = await res.json();
-    if (res.status === 409) {
+    if (res.status === 409 && !retry) {
       githubSha = null;
       localStorage.removeItem('rsl_github_sha');
-      throw new Error('Файл изменён другим пользователем. Обнови страницу.');
+      return githubUpdateBase(newItems, true);
     }
     throw new Error('GitHub update failed: ' + (err.message || res.status));
   }
@@ -461,11 +461,12 @@ async function saveGithubSettings() {
     alert('Формат: владелец/название');
     return;
   }
-  localStorage.setItem('rsl_github_token', token);
+localStorage.setItem('rsl_github_token', token);
   localStorage.setItem('rsl_github_repo', repo);
   githubToken = token;
   githubRepo = repo;
   useGithub = true;
+  await githubGetBase();
   closeModals();
   alert('✅ Настройки сохранены. Обновляю каталог...');
   await loadData();
