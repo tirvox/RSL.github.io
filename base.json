@@ -16,14 +16,5 @@
     "install": "https://discord.gg/fhBzjgp78r",
     "discord": "https://discord.gg/fhBzjgp78r",
     "status": "green"
-  },
-  {
-    "category": "Инжекторы",
-    "name": "fDSA",
-    "img": "ASFD",
-    "desc": "AFSD",
-    "install": "ASDF",
-    "discord": "FASD",
-    "status": "green"
   }
 ]
