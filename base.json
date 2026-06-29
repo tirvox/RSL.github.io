@@ -1,14 +1,5 @@
 [
   {
-    "name": "RSL Injector",
-    "category": "Инжекторы",
-    "img": "https://via.placeholder.com/300x160/2a2a35/FFFFFF?text=RSL+Injector",
-    "desc": "Быстрый и стабильный инжектор с автоматическим обновлением.",
-    "install": "https://discord.gg/fhBzjgp78r",
-    "discord": "https://discord.gg/fhBzjgp78r",
-    "status": "green"
-  },
-  {
     "name": "Universal Script",
     "category": "Скрипты",
     "img": "https://via.placeholder.com/300x160/2a2a35/FFFFFF?text=Universal+Script",
