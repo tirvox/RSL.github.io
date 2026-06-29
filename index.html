@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RSL - Инжекторы и Скрипты</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Inter',sans-serif;}
+body{background-color:#0d0d12;color:#fff;}
+header{display:flex;justify-content:space-between;align-items:center;padding:15px 40px;background:#121218;border-bottom:1px solid #2a2a35;}
+.logo{font-size:24px;font-weight:800;color:#a855f7;}
+.nav-links{display:flex;gap:30px;}
+.nav-links a{color:#a1a1aa;text-decoration:none;font-weight:600;cursor:pointer;transition:0.2s;}
+.nav-links a:hover,.nav-links a.active{color:#fff;}
+.auth-btn{background:#2a2a35;color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:600;}
+.auth-btn:hover{background:#3f3f4e;}
+main{padding:40px;max-width:1400px;margin:0 auto;}
+.hero h1{font-size:36px;margin-bottom:10px;}
+.hero p{color:#a1a1aa;margin-bottom:30px;}
+.controls{display:flex;justify-content:space-between;margin-bottom:30px;gap:10px;}
+.search-bar{flex-grow:1;padding:12px 20px;background:#121218;border:1px solid #2a2a35;color:white;border-radius:8px;font-size:16px;outline:none;}
+.top-btns{display:flex;gap:10px;}
+.admin-add-btn{background:#a855f7;color:white;border:none;padding:12px 20px;border-radius:8px;cursor:pointer;font-weight:600;display:none;}
+.db-btn{background:#1e1e2e;border:1px solid #a855f7;color:#a855f7;padding:12px 20px;border-radius:8px;cursor:pointer;font-weight:600;display:none;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;}
+.card{background:#121218;border:1px solid #2a2a35;border-radius:12px;padding:15px;position:relative;transition:0.3s;}
+.card:hover{transform:translateY(-5px);border-color:#a855f7;}
+.card img{width:100%;height:160px;object-fit:cover;border-radius:8px;margin-bottom:15px;background:#2a2a35;}
+.status{position:absolute;top:25px;left:25px;width:12px;height:12px;border-radius:50%;box-shadow:0 0 8px currentColor;z-index:2;}
+.status.green{background:#22c55e;color:#22c55e;}
+.status.yellow{background:#eab308;color:#eab308;}
+.status.red{background:#ef4444;color:#ef4444;}
+.admin-actions{position:absolute;top:20px;right:20px;display:flex;gap:5px;z-index:2;}
+.admin-btn{border:none;border-radius:4px;padding:5px 8px;cursor:pointer;color:white;font-size:12px;}
+.edit-btn{background:#eab308;}
+.del-btn{background:#ef4444;}
+.card h3{font-size:18px;margin-bottom:8px;}
+.card .short-desc{font-size:13px;color:#a1a1aa;margin-bottom:12px;min-height:36px;}
+.card button.view-btn{width:100%;padding:10px;background:linear-gradient(90deg,#9333ea,#a855f7);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;}
+
+/* МОДАЛКИ */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);align-items:center;justify-content:center;z-index:1000;overflow-y:auto;}
+.modal{background:#121218;padding:30px;border-radius:16px;border:1px solid #2a2a35;width:420px;text-align:center;position:relative;margin:auto;}
+.modal.wide{width:700px;max-width:95vw;}
+.modal h2{margin-bottom:20px;}
+.modal input{width:100%;padding:12px;margin-bottom:12px;background:#0d0d12;border:1px solid #2a2a35;color:white;border-radius:8px;font-size:14px;outline:none;transition:border-color 0.2s;}
+.modal input:focus{border-color:#a855f7;}
+.modal textarea{width:100%;padding:12px;margin-bottom:12px;background:#0d0d12;border:1px solid #2a2a35;color:white;border-radius:8px;font-size:14px;outline:none;resize:vertical;min-height:80px;transition:border-color 0.2s;}
+.modal textarea:focus{border-color:#a855f7;}
+.modal button.action-btn{width:100%;padding:12px;background:linear-gradient(90deg,#9333ea,#a855f7);color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;margin-bottom:10px;font-size:15px;transition:opacity 0.2s;}
+.modal button.action-btn:hover{opacity:0.9;}
+.close-btn{position:absolute;top:10px;right:15px;cursor:pointer;font-size:22px;color:#a1a1aa;}
+.switch-modal,.forgot-pass{color:#a855f7;font-size:13px;cursor:pointer;text-decoration:underline;margin-top:5px;display:block;}
+
+.custom-select-wrapper{position:relative;margin-bottom:12px;}
+.custom-select-wrapper select{width:100%;padding:12px 40px 12px 14px;background:#1a1a24;border:1px solid #3a3a4e;color:white;border-radius:8px;font-size:14px;font-family:'Inter',sans-serif;appearance:none;-webkit-appearance:none;cursor:pointer;outline:none;transition:border-color 0.2s,box-shadow 0.2s;}
+.custom-select-wrapper select:focus{border-color:#a855f7;box-shadow:0 0 0 3px rgba(168,85,247,0.2);}
+.custom-select-wrapper::after{content:'';position:absolute;right:14px;top:50%;transform:translateY(-50%);width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:6px solid #a855f7;pointer-events:none;}
+.custom-select-wrapper select option{background:#1a1a24;color:white;}
+
+/* ДЕТАЛИ ТОВАРА */
+.detail-modal .modal{width:520px;}
+.detail-img{width:100%;height:200px;object-fit:cover;border-radius:10px;margin-bottom:20px;}
+.detail-status-row{display:flex;align-items:center;gap:8px;margin-bottom:15px;justify-content:center;}
+.detail-dot{width:12px;height:12px;border-radius:50%;}
+.detail-dot.green{background:#22c55e;box-shadow:0 0 8px #22c55e;}
+.detail-dot.yellow{background:#eab308;box-shadow:0 0 8px #eab308;}
+.detail-dot.red{background:#ef4444;box-shadow:0 0 8px #ef4444;}
+.detail-status-label{font-size:13px;color:#a1a1aa;}
+.detail-desc{font-size:14px;color:#d4d4d8;margin-bottom:20px;text-align:left;line-height:1.6;white-space:pre-wrap;}
+.detail-links{display:flex;flex-direction:column;gap:10px;}
+.detail-link-btn{display:block;padding:12px;border-radius:8px;font-weight:600;font-size:14px;text-decoration:none;text-align:center;cursor:pointer;border:none;transition:opacity 0.2s;}
+.detail-link-btn:hover{opacity:0.85;}
+.link-install{background:linear-gradient(90deg,#9333ea,#a855f7);color:white;}
+.link-discord{background:#5865f2;color:white;}
+.link-script{background:#0f766e;color:white;}
+
+/* БАЗА ДАННЫХ */
+.db-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px;}
+.db-table th{background:#1a1a24;padding:10px 8px;text-align:left;border-bottom:1px solid #2a2a35;color:#a855f7;}
+.db-table td{padding:9px 8px;border-bottom:1px solid #1e1e2e;vertical-align:middle;}
+.db-table tr:hover td{background:#161620;}
+.db-edit-inline{display:flex;gap:6px;align-items:center;}
+.db-edit-inline input{flex:1;padding:6px 10px;background:#0d0d12;border:1px solid #2a2a35;color:white;border-radius:6px;font-size:12px;outline:none;}
+.db-save-btn{background:#22c55e;border:none;color:white;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:12px;white-space:nowrap;}
+.db-del-btn{background:#ef4444;border:none;color:white;padding:5px 10px;border-radius:5px;cursor:pointer;font-size:12px;}
+.db-section-title{font-size:16px;font-weight:700;margin:20px 0 10px;text-align:left;color:#a855f7;}
+.empty-state{grid-column:1/-1;text-align:center;color:#a1a1aa;padding:40px;}
+.section-label{font-size:11px;color:#6b7280;text-align:left;margin-bottom:4px;margin-top:2px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">RSL.gg</div>
+  <div class="nav-links" id="navMenu">
+    <a class="active" onclick="setCategory('Инжекторы')">Инжекторы</a>
+    <a onclick="setCategory('Скрипты')">Скрипты</a>
+    <a onclick="window.open('https://www.youtube.com/@Tirvox','_blank')">Видео</a>
+    <a onclick="window.open('https://discord.gg/fhBzjgp78r','_blank')">Дискорд</a>
+  </div>
+  <button class="auth-btn" id="userBtn">Вход / Регистрация</button>
+</header>
+
+<main>
+  <div class="hero">
+    <h1 id="pageTitle">Каталог: Инжекторы</h1>
+    <p>Выбирай лучшие решения. Выдача моментально.</p>
+  </div>
+  <div class="controls">
+    <input type="text" id="searchInput" class="search-bar" placeholder="Поиск по названию..." onkeyup="renderItems()">
+    <div class="top-btns">
+      <button class="db-btn" id="dbBtn" onclick="openDB()">👥 База данных</button>
+      <button class="admin-add-btn" id="adminBtn" onclick="openAddModal()">+ Добавить софт</button>
+    </div>
+  </div>
+  <div class="grid" id="itemsGrid"></div>
+</main>
+
+<!-- Вход -->
+<div class="modal-overlay" id="loginModal">
+  <div class="modal">
+    <span class="close-btn" onclick="closeModals()">×</span>
+    <h2>Вход</h2>
+    <input type="text" id="loginUser" placeholder="Никнейм">
+    <input type="password" id="loginPass" placeholder="Пароль">
+    <button class="action-btn" onclick="login()">Войти</button>
+    <a href="https://discord.gg/fhBzjgp78r" target="_blank" class="forgot-pass">Забыл пароль? (Тикет в DS)</a>
+    <span class="switch-modal" onclick="openModal('registerModal')">Нет аккаунта? Зарегистрироваться</span>
+  </div>
+</div>
+
+<!-- Регистрация -->
+<div class="modal-overlay" id="registerModal">
+  <div class="modal">
+    <span class="close-btn" onclick="closeModals()">×</span>
+    <h2>Регистрация</h2>
+    <input type="text" id="regUser" placeholder="Никнейм">
+    <input type="email" id="regEmail" placeholder="Почта">
+    <input type="password" id="regPass" placeholder="Пароль">
+    <button class="action-btn" onclick="register()">Создать аккаунт</button>
+    <span class="switch-modal" onclick="openModal('loginModal')">Уже есть аккаунт? Войти</span>
+  </div>
+</div>
+
+<!-- Добавить/Редактировать -->
+<div class="modal-overlay" id="addItemModal">
+  <div class="modal">
+    <span class="close-btn" onclick="closeModals()">×</span>
+    <h2 id="adminModalTitle">Добавить софт</h2>
+    <div class="custom-select-wrapper">
+      <select id="itemCategory">
+        <option value="Инжекторы">Раздел: Инжекторы</option>
+        <option value="Скрипты">Раздел: Скрипты</option>
+      </select>
+    </div>
+    <input type="text" id="itemName" placeholder="Название">
+    <input type="text" id="itemImg" placeholder="Ссылка на картинку (.jpg/.png)">
+    <textarea id="itemDesc" placeholder="Описание (что делает, особенности...)"></textarea>
+    <p class="section-label">Ссылка на установку / скачивание</p>
+    <input type="text" id="itemInstall" placeholder="https://... (ссылка на установку)">
+    <p class="section-label">Discord канал инжектора / скрипта</p>
+    <input type="text" id="itemDiscord" placeholder="https://discord.gg/...">
+    <div class="custom-select-wrapper">
+      <select id="itemStatus">
+        <option value="green">🟢 Undetected (Работает)</option>
+        <option value="yellow">🟡 Updating (Обновляется)</option>
+        <option value="red">🔴 Detected (Риск)</option>
+      </select>
+    </div>
+    <button class="action-btn" onclick="saveItem()">Сохранить</button>
+  </div>
+</div>
+
+<!-- Детали товара -->
+<div class="modal-overlay detail-modal" id="detailModal">
+  <div class="modal">
+    <span class="close-btn" onclick="closeModals()">×</span>
+    <img id="dImg" class="detail-img" src="" alt="">
+    <h2 id="dName"></h2>
+    <div class="detail-status-row">
+      <div class="detail-dot" id="dDot"></div>
+      <span class="detail-status-label" id="dStatusLabel"></span>
+    </div>
+    <div class="detail-desc" id="dDesc"></div>
+    <div class="detail-links" id="dLinks"></div>
+  </div>
+</div>
+
+<!-- База данных -->
+<div class="modal-overlay" id="dbModal">
+  <div class="modal wide">
+    <span class="close-btn" onclick="closeModals()">×</span>
+    <h2>👥 База данных пользователей</h2>
+    <div id="dbContent"></div>
+  </div>
+</div>
+
+<script>
+let items = JSON.parse(localStorage.getItem('shopItems')) || [];
+let users = JSON.parse(localStorage.getItem('rslUsers')) || [];
+let currentUser = localStorage.getItem('currentUser');
+let currentCategory = 'Инжекторы';
+let editingIndex = -1;
+
+const statusMap = {
+  green: 'Undetected — Работает',
+  yellow: 'Updating — Обновляется',
+  red: 'Detected — Риск'
+};
+
+window.onload = () => { checkUser(); setCategory('Инжекторы'); }
+
+function setCategory(cat) {
+  currentCategory = cat;
+  document.getElementById('pageTitle').innerText = `Каталог: ${cat}`;
+  const links = document.getElementById('navMenu').getElementsByTagName('a');
+  for(let i=0;i<2;i++){
+    if(links[i].innerText===cat) links[i].classList.add('active');
+    else links[i].classList.remove('active');
+  }
+  renderItems();
+}
+
+function checkUser() {
+  if(currentUser){
+    document.getElementById('userBtn').innerText = currentUser;
+    document.getElementById('userBtn').onclick = logout;
+    if(currentUser==='admin'){
+      document.getElementById('adminBtn').style.display='block';
+      document.getElementById('dbBtn').style.display='block';
+    }
+  } else {
+    document.getElementById('userBtn').innerText='Вход / Регистрация';
+    document.getElementById('userBtn').onclick=()=>openModal('loginModal');
+    document.getElementById('adminBtn').style.display='none';
+    document.getElementById('dbBtn').style.display='none';
+  }
+}
+
+function renderItems() {
+  const grid = document.getElementById('itemsGrid');
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  grid.innerHTML = '';
+  let filtered = items.filter(item=>{
+    return item.name.toLowerCase().includes(search) &&
+      (item.category||'Инжекторы')===currentCategory;
+  });
+  if(!filtered.length){
+    grid.innerHTML='<div class="empty-state">В этой категории пока нет товаров.</div>';
+    return;
+  }
+  filtered.forEach(item=>{
+    let ri = items.indexOf(item);
+    let adminHtml='';
+    if(currentUser==='admin'){
+      adminHtml=`<div class="admin-actions">
+        <button class="admin-btn edit-btn" onclick="openEditModal(${ri})">✏️</button>
+        <button class="admin-btn del-btn" onclick="deleteItem(${ri})">🗑</button>
+      </div>`;
+    }
+    let shortDesc = item.desc ? item.desc.slice(0,80)+(item.desc.length>80?'…':'') : '';
+    grid.innerHTML+=`
+      <div class="card">
+        ${adminHtml}
+        <div class="status ${item.status}"></div>
+        <img src="${item.img||'https://via.placeholder.com/300x160/2a2a35/FFFFFF?text=No+Image'}"
+             onerror="this.src='https://via.placeholder.com/300x160/2a2a35/FFFFFF?text=Error'" alt="">
+        <h3>${item.name}</h3>
+        <div class="short-desc">${shortDesc}</div>
+        <button class="view-btn" onclick="openDetail(${ri})">VIEW DETAILS</button>
+      </div>`;
+  });
+}
+
+function openDetail(index) {
+  let item = items[index];
+  document.getElementById('dImg').src = item.img || 'https://via.placeholder.com/520x200/2a2a35/FFFFFF?text=No+Image';
+  document.getElementById('dName').innerText = item.name;
+  let dot = document.getElementById('dDot');
+  dot.className = 'detail-dot ' + item.status;
+  document.getElementById('dStatusLabel').innerText = statusMap[item.status] || '';
+  document.getElementById('dDesc').innerText = item.desc || 'Описание не указано.';
+  let links = '';
+  if(item.install){
+    links+=`<a class="detail-link-btn link-install" href="${item.install}" target="_blank">⬇️ Установить / Скачать</a>`;
+  }
+  if(item.discord){
+    links+=`<a class="detail-link-btn link-discord" href="${item.discord}" target="_blank">💬 Discord канал</a>`;
+  }
+  document.getElementById('dLinks').innerHTML = links || '<p style="color:#6b7280;font-size:13px;">Ссылки не указаны.</p>';
+  openModal('detailModal');
+}
+
+function openModal(id){
+  closeModals();
+  document.getElementById(id).style.display='flex';
+}
+function closeModals(){
+  document.querySelectorAll('.modal-overlay').forEach(m=>m.style.display='none');
+}
+
+function register(){
+  let nick=document.getElementById('regUser').value.trim();
+  let email=document.getElementById('regEmail').value.trim();
+  let pass=document.getElementById('regPass').value;
+  if(!nick||!pass){alert('Заполни никнейм и пароль!');return;}
+  if(users.find(u=>u.nick===nick)){alert('Такой никнейм уже занят!');return;}
+  let newUser={nick,email,pass,registered:new Date().toLocaleDateString('ru')};
+  users.push(newUser);
+  localStorage.setItem('rslUsers',JSON.stringify(users));
+  localStorage.setItem('currentUser',nick);
+  currentUser=nick;
+  checkUser(); closeModals(); renderItems();
+}
+
+function login(){
+  let nick=document.getElementById('loginUser').value.trim();
+  let pass=document.getElementById('loginPass').value;
+if(nick==='admin'&&pass==='Rolparol111'){
+     localStorage.setItem('currentUser','admin');
+     currentUser='admin';
+     checkUser(); closeModals(); renderItems();
+     return;
+   }
+  let found=users.find(u=>u.nick===nick&&u.pass===pass);
+  if(found){
+    localStorage.setItem('currentUser',nick);
+    currentUser=nick;
+    checkUser(); closeModals(); renderItems();
+  } else {
+    alert('Неверный никнейм или пароль!');
+  }
+}
+
+function logout(){
+  localStorage.removeItem('currentUser');
+  currentUser=null;
+  checkUser(); renderItems();
+}
+
+function openAddModal(){
+  editingIndex=-1;
+  document.getElementById('adminModalTitle').innerText='Добавить софт';
+  ['itemName','itemImg','itemDesc','itemInstall','itemDiscord'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('itemCategory').value=currentCategory;
+  document.getElementById('itemStatus').value='green';
+  openModal('addItemModal');
+}
+
+function openEditModal(index){
+  editingIndex=index;
+  let item=items[index];
+  document.getElementById('adminModalTitle').innerText='Редактировать софт';
+  document.getElementById('itemCategory').value=item.category||'Инжекторы';
+  document.getElementById('itemName').value=item.name||'';
+  document.getElementById('itemImg').value=item.img||'';
+  document.getElementById('itemDesc').value=item.desc||'';
+  document.getElementById('itemInstall').value=item.install||'';
+  document.getElementById('itemDiscord').value=item.discord||'';
+  document.getElementById('itemStatus').value=item.status||'green';
+  openModal('addItemModal');
+}
+
+function saveItem(){
+  let itemData={
+    category:document.getElementById('itemCategory').value,
+    name:document.getElementById('itemName').value.trim(),
+    img:document.getElementById('itemImg').value.trim(),
+    desc:document.getElementById('itemDesc').value.trim(),
+    install:document.getElementById('itemInstall').value.trim(),
+    discord:document.getElementById('itemDiscord').value.trim(),
+    status:document.getElementById('itemStatus').value
+  };
+  if(!itemData.name){alert('Название обязательно!');return;}
+  if(editingIndex===-1) items.push(itemData);
+  else items[editingIndex]=itemData;
+  localStorage.setItem('shopItems',JSON.stringify(items));
+  if(currentCategory!==itemData.category) setCategory(itemData.category);
+  else renderItems();
+  closeModals();
+}
+
+function deleteItem(index){
+  if(confirm('Удалить товар?')){
+    items.splice(index,1);
+    localStorage.setItem('shopItems',JSON.stringify(items));
+    renderItems();
+  }
+}
+
+// --- БАЗА ДАННЫХ ---
+function openDB(){
+  let html='<p class="db-section-title">Все зарегистрированные пользователи</p>';
+  if(!users.length){
+    html+='<p style="color:#6b7280;text-align:left;font-size:13px;">Нет зарегистрированных пользователей.</p>';
+  } else {
+    html+=`<table class="db-table">
+      <thead><tr>
+        <th>#</th><th>Никнейм</th><th>Почта</th><th>Дата рег.</th><th>Новый пароль</th><th>Удалить</th>
+      </tr></thead><tbody id="dbTableBody">`;
+    users.forEach((u,i)=>{
+      html+=`<tr>
+        <td style="color:#6b7280">${i+1}</td>
+        <td><b>${u.nick}</b></td>
+        <td style="color:#a1a1aa">${u.email||'—'}</td>
+        <td style="color:#6b7280">${u.registered||'—'}</td>
+        <td>
+          <div class="db-edit-inline">
+            <input type="text" id="newpass_${i}" placeholder="Новый пароль">
+            <button class="db-save-btn" onclick="changePass(${i})">Сохранить</button>
+          </div>
+        </td>
+        <td><button class="db-del-btn" onclick="deleteUser(${i})">🗑</button></td>
+      </tr>`;
+    });
+    html+=`</tbody></table>`;
+  }
+  document.getElementById('dbContent').innerHTML=html;
+  openModal('dbModal');
+}
+
+function changePass(index){
+  let newPass=document.getElementById('newpass_'+index).value.trim();
+  if(!newPass){alert('Введи новый пароль!');return;}
+  users[index].pass=newPass;
+  localStorage.setItem('rslUsers',JSON.stringify(users));
+  alert(`Пароль пользователя "${users[index].nick}" изменён!`);
+  openDB();
+}
+
+function deleteUser(index){
+  if(confirm(`Удалить пользователя "${users[index].nick}"?`)){
+    users.splice(index,1);
+    localStorage.setItem('rslUsers',JSON.stringify(users));
+    openDB();
+  }
+}
+</script>
+</body>
+</html>
