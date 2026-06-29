@@ -101,6 +101,7 @@ main{padding:40px;max-width:1400px;margin:0 auto;}
     <a onclick="window.open('https://discord.gg/fhBzjgp78r','_blank')">Дискорд</a>
   </div>
   <button class="auth-btn" id="userBtn">Вход / Регистрация</button>
+  <button class="db-btn" id="githubBtn" style="display:none;margin-left:10px" onclick="openGithubModal()">🔗 GitHub Sync</button>
 </header>
 
 <main>
@@ -190,6 +191,25 @@ main{padding:40px;max-width:1400px;margin:0 auto;}
   </div>
 </div>
 
+<!-- GitHub Sync -->
+<div class="modal-overlay" id="githubModal">
+  <div class="modal">
+    <span class="close-btn" onclick="closeModals()">×</span>
+    <h2>🔗 Синхронизация с GitHub</h2>
+    <p style="color:#a1a1aa;font-size:13px;margin-bottom:15px">
+      Настрой синхронизацию с репозиторием. После настройки все изменения каталога будут автоматически сохраняться в <code>base.json</code>.
+    </p>
+    <input type="text" id="ghRepo" placeholder="Владелец/репо (например: Tirvox/rsl-site)">
+    <input type="password" id="ghToken" placeholder="GitHub Personal Access Token (repo scope)">
+    <p style="font-size:11px;color:#6b7280;text-align:left;margin-bottom:10px">
+      Создать токен: Settings → Developer settings → Personal access tokens → Generate new token (classic). Нужен scope <code>repo</code>.
+    </p>
+    <button class="action-btn" onclick="saveGithubSettings()">Сохранить и подключиться</button>
+    <button class="action-btn" onclick="testGithubSync()" style="background:#2a2a35">Проверить подключение</button>
+    <span class="switch-modal" onclick="clearGithubSettings()">Отключить синхронизацию</span>
+  </div>
+</div>
+
 <!-- База данных -->
 <div class="modal-overlay" id="dbModal">
   <div class="modal wide">
@@ -227,6 +247,11 @@ let currentUser = null;
 let currentCategory = 'Инжекторы';
 let editingIndex = -1;
 let deletedKeys = [];
+let useGithub = false;
+let githubToken = localStorage.getItem('rsl_github_token') || '';
+let githubRepo = localStorage.getItem('rsl_github_repo') || '';
+let githubSha = null;
+let lastSyncStatus = '';
 
 const statusMap = {
   green: 'Undetected — Работает',
@@ -235,19 +260,8 @@ const statusMap = {
 };
 
 async function loadData() {
-  let baseItems = [];
-  try {
-    const res = await fetch('base.json?t=' + Date.now());
-    if (res.ok) {
-      baseItems = await res.json();
-      if (!Array.isArray(baseItems)) baseItems = [];
-    }
-  } catch (e) {
-    console.log('base.json не загружен, используем localStorage и DEFAULT_ITEMS');
-  }
-
   let localItems = [];
-  let deletedKeys = [];
+  let deletedKeysFromStorage = [];
   try {
     const stored = localStorage.getItem('shopItems');
     if (stored) {
@@ -257,15 +271,35 @@ async function loadData() {
     const storedDel = localStorage.getItem('deletedKeys');
     if (storedDel) {
       const parsedDel = JSON.parse(storedDel);
-      if (Array.isArray(parsedDel)) deletedKeys = parsedDel;
+      if (Array.isArray(parsedDel)) deletedKeysFromStorage = parsedDel;
     }
   } catch (e) {}
+
+  if (githubToken && githubRepo) {
+    useGithub = true;
+  }
+
+  let baseItems = [];
+  try {
+    if (useGithub) {
+      baseItems = await githubGetBase();
+      if (!Array.isArray(baseItems)) baseItems = [];
+    } else {
+      const res = await fetch('base.json?t=' + Date.now());
+      if (res.ok) {
+        baseItems = await res.json();
+        if (!Array.isArray(baseItems)) baseItems = [];
+      }
+    }
+  } catch (e) {
+    console.log('base.json не загружен, используем localStorage и DEFAULT_ITEMS');
+  }
 
   const baseKey = (i) => (i.name || '').toLowerCase() + '|' + (i.category || '');
   const baseKeys = new Set(baseItems.map(baseKey));
   const extraLocal = localItems.filter(i => !baseKeys.has(baseKey(i)));
 
-  items = [...baseItems.filter(i => !deletedKeys.includes(baseKey(i))), ...extraLocal];
+  items = [...baseItems.filter(i => !deletedKeysFromStorage.includes(baseKey(i))), ...extraLocal];
   if (!items.length) items = DEFAULT_ITEMS.slice();
 }
 
@@ -308,6 +342,151 @@ window.onerror = function(msg, url, lineNo, columnNo, error) {
   return false;
 };
 
+async function githubGetBase() {
+  const [owner, repo] = githubRepo.split('/');
+  const url = `https://api.github.com/repos/${owner}/${repo}/contents/base.json?ref=main`;
+  const res = await fetch(url, {
+    headers: { 'Authorization': `token ${githubToken}`, 'Accept': 'application/vnd.github.v3+json' }
+  });
+  if (!res.ok) throw new Error('GitHub get failed: ' + res.status);
+  const data = await res.json();
+  if (data.content) {
+    githubSha = data.sha;
+    return JSON.parse(atob(data.content.replace(/\n/g, '')));
+  }
+  return [];
+}
+
+async function githubUpdateBase(newItems) {
+  const [owner, repo] = githubRepo.split('/');
+  const content = btoa(unescape(encodeURIComponent(JSON.stringify(newItems, null, 2))));
+  const url = `https://api.github.com/repos/${owner}/${repo}/contents/base.json`;
+  const body = {
+    message: 'Update base.json',
+    content: content,
+    branch: 'main'
+  };
+  if (githubSha) {
+    body.sha = githubSha;
+  }
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `token ${githubToken}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/vnd.github.v3+json'
+    },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error('GitHub update failed: ' + (err.message || res.status));
+  }
+  const data = await res.json();
+  githubSha = data.content.sha;
+  return true;
+}
+
+async function testGithubSync() {
+  const btn = event.target;
+  btn.textContent = 'Проверка...';
+  btn.disabled = true;
+  try {
+    const token = document.getElementById('ghToken').value.trim();
+    const repo = document.getElementById('ghRepo').value.trim();
+    if (!token || !repo) {
+      alert('Введи токен и репо!');
+      return;
+    }
+    const [owner, r] = repo.split('/');
+    if (!owner || !r) {
+      alert('Формат репо: владелец/название');
+      return;
+    }
+    const testRes = await fetch(`https://api.github.com/repos/${owner}/${r}/contents/base.json?ref=main`, {
+      headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' }
+    });
+    if (testRes.ok) {
+      alert('✅ Подключение работает! Нажми «Сохранить и подключиться».');
+    } else if (testRes.status === 404) {
+      alert('⚠️ Репо найдено, но base.json нет. Он будет создан при первом сохранении.');
+    } else {
+      const err = await testRes.json();
+      alert('❌ Ошибка: ' + (err.message || testRes.status));
+    }
+  } catch (e) {
+    alert('❌ Ошибка подключения: ' + e.message);
+  }
+  btn.textContent = 'Проверить подключение';
+  btn.disabled = false;
+}
+
+async function saveGithubSettings() {
+  const token = document.getElementById('ghToken').value.trim();
+  const repo = document.getElementById('ghRepo').value.trim();
+  if (!token || !repo) {
+    alert('Введи токен и название репо!');
+    return;
+  }
+  const [owner, r] = repo.split('/');
+  if (!owner || !r) {
+    alert('Формат: владелец/название');
+    return;
+  }
+  localStorage.setItem('rsl_github_token', token);
+  localStorage.setItem('rsl_github_repo', repo);
+  githubToken = token;
+  githubRepo = repo;
+  useGithub = true;
+  closeModals();
+  alert('✅ Настройки сохранены. Обновляю каталог...');
+  await loadData();
+  loadUsers();
+  checkUser();
+  setCategory(currentCategory);
+}
+
+function clearGithubSettings() {
+  if (confirm('Отключить синхронизацию с GitHub? Изменения больше не будут сохраняться в репозиторий.')) {
+    localStorage.removeItem('rsl_github_token');
+    localStorage.removeItem('rsl_github_repo');
+    githubToken = '';
+    githubRepo = '';
+    useGithub = false;
+    githubSha = null;
+    closeModals();
+    alert('Синхронизация отключена.');
+  }
+}
+
+function openGithubModal() {
+  document.getElementById('ghRepo').value = githubRepo;
+  document.getElementById('ghToken').value = githubToken;
+  openModal('githubModal');
+}
+
+async function githubPushBase() {
+  if (!useGithub || !githubToken || !githubRepo) return;
+  try {
+    await githubUpdateBase(items);
+    lastSyncStatus = '✅ Синхронизировано';
+  } catch (e) {
+    console.error('GitHub sync error:', e);
+    lastSyncStatus = '❌ Ошибка синхронизации: ' + e.message;
+  }
+}
+
+async function githubPullBase() {
+  if (!useGithub || !githubToken || !githubRepo) return false;
+  try {
+    const base = await githubGetBase();
+    return base;
+  } catch (e) {
+    console.error('GitHub pull error:', e);
+    return false;
+  }
+}
+
 function setCategory(cat) {
   currentCategory = cat;
   document.getElementById('pageTitle').innerText = `Каталог: ${cat}`;
@@ -326,12 +505,14 @@ function checkUser() {
     if(currentUser==='admin'){
       document.getElementById('adminBtn').style.display='block';
       document.getElementById('dbBtn').style.display='block';
+      document.getElementById('githubBtn').style.display='inline-block';
     }
   } else {
     document.getElementById('userBtn').innerText='Вход / Регистрация';
     document.getElementById('userBtn').onclick=()=>openModal('loginModal');
     document.getElementById('adminBtn').style.display='none';
     document.getElementById('dbBtn').style.display='none';
+    document.getElementById('githubBtn').style.display='none';
   }
 }
 
@@ -477,6 +658,12 @@ function saveItem(){
   if(currentCategory!==itemData.category) setCategory(itemData.category);
   else renderItems();
   closeModals();
+  if(useGithub && githubToken){
+    lastSyncStatus = '🔄 Синхронизация...';
+    githubPushBase().then(()=>{
+      console.log('Sync result:', lastSyncStatus);
+    });
+  }
 }
 
 function deleteItem(index){
@@ -489,6 +676,12 @@ function deleteItem(index){
     items.splice(index,1);
     localStorage.setItem('shopItems',JSON.stringify(items));
     renderItems();
+    if(useGithub && githubToken){
+      lastSyncStatus = '🔄 Синхронизация...';
+      githubPushBase().then(()=>{
+        console.log('Sync result:', lastSyncStatus);
+      });
+    }
   }
 }
 
