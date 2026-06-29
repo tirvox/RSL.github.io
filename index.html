@@ -114,7 +114,9 @@ main{padding:40px;max-width:1400px;margin:0 auto;}
     <div class="top-btns">
       <button class="db-btn" id="dbBtn" onclick="openDB()">👥 База данных</button>
       <button class="admin-add-btn" id="adminBtn" onclick="openAddModal()">+ Добавить софт</button>
+      <button class="db-btn" id="githubBtn" style="display:none;margin-left:8px" onclick="openGithubModal()">🔗 GitHub Sync</button>
     </div>
+    <div id="syncStatus" style="font-size:12px;color:#a855f7;margin-left:auto"></div>
   </div>
   <div class="grid" id="itemsGrid">
     <div class="empty-state">Загрузка каталога...</div>
@@ -274,6 +276,7 @@ async function loadData() {
       if (Array.isArray(parsedDel)) deletedKeysFromStorage = parsedDel;
     }
   } catch (e) {}
+  deletedKeys = deletedKeysFromStorage.slice();
 
   if (githubToken && githubRepo) {
     useGithub = true;
@@ -342,6 +345,21 @@ window.onerror = function(msg, url, lineNo, columnNo, error) {
   return false;
 };
 
+function base64Decode(str) {
+  const binary = atob(str);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+function base64Encode(str) {
+  const bytes = new TextEncoder().encode(str);
+  const binary = Array.from(bytes, b => String.fromCharCode(b)).join('');
+  return btoa(binary);
+}
+
 async function githubGetBase() {
   const [owner, repo] = githubRepo.split('/');
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/base.json?ref=main`;
@@ -352,14 +370,14 @@ async function githubGetBase() {
   const data = await res.json();
   if (data.content) {
     githubSha = data.sha;
-    return JSON.parse(atob(data.content.replace(/\n/g, '')));
+    return JSON.parse(base64Decode(data.content.replace(/\n/g, '')));
   }
   return [];
 }
 
 async function githubUpdateBase(newItems) {
   const [owner, repo] = githubRepo.split('/');
-  const content = btoa(unescape(encodeURIComponent(JSON.stringify(newItems, null, 2))));
+  const content = base64Encode(JSON.stringify(newItems, null, 2));
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/base.json`;
   const body = {
     message: 'Update base.json',
@@ -658,10 +676,16 @@ function saveItem(){
   if(currentCategory!==itemData.category) setCategory(itemData.category);
   else renderItems();
   closeModals();
+  updateSyncStatus('Сохранено локально. Синхронизация с GitHub...');
   if(useGithub && githubToken){
-    lastSyncStatus = '🔄 Синхронизация...';
     githubPushBase().then(()=>{
-      console.log('Sync result:', lastSyncStatus);
+      updateSyncStatus(lastSyncStatus);
+      if(lastSyncStatus.includes('❌')){
+        alert('⚠️ GitHub Sync: ' + lastSyncStatus + '\n\nДанные сохранены локально. Проверь настройки синхронизации.');
+      }
+    }).catch(e=>{
+      updateSyncStatus('❌ Ошибка сети');
+      alert('Ошибка сети при синхронизации с GitHub.');
     });
   }
 }
@@ -676,13 +700,24 @@ function deleteItem(index){
     items.splice(index,1);
     localStorage.setItem('shopItems',JSON.stringify(items));
     renderItems();
+    updateSyncStatus('Удалено локально. Синхронизация с GitHub...');
     if(useGithub && githubToken){
-      lastSyncStatus = '🔄 Синхронизация...';
       githubPushBase().then(()=>{
-        console.log('Sync result:', lastSyncStatus);
+        updateSyncStatus(lastSyncStatus);
+        if(lastSyncStatus.includes('❌')){
+          alert('⚠️ GitHub Sync: ' + lastSyncStatus);
+        }
+      }).catch(e=>{
+        updateSyncStatus('❌ Ошибка сети');
       });
     }
   }
+}
+
+function updateSyncStatus(text){
+  lastSyncStatus = text;
+  const el = document.getElementById('syncStatus');
+  if(el) el.textContent = text;
 }
 
 // --- БАЗА ДАННЫХ ---
